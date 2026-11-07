@@ -43,10 +43,13 @@ jobs:
       - name: Apply duplicate-class fix
         working-directory: ${{ env.APP_DIR }}/android
         run: |
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
+          printf "\nandroid.enableJetifier=true\n" >> gradle.properties
+          printf "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\n" >> gradle.properties
           grep -q "exclude group: 'com.android.support'" app/build.gradle || \
             printf "\nconfigurations.all {\n    exclude group: 'com.android.support'\n}\n" >> app/build.gradle
+          echo "---- gradle.properties ----"
+          cat gradle.properties
+          echo "---- app/build.gradle (end) ----"
           tail -5 app/build.gradle
 
       - name: Build release APK

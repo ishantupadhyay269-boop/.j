@@ -12,8 +12,20 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -o jarvis-android-fixed.zip
-          ls jarvis
+          echo "Repo files:"; ls -la
+          ZIP=$(ls -t *.zip 2>/dev/null | head -1)
+          if [ -n "$ZIP" ]; then
+            echo "Using zip: $ZIP"
+            unzip -o "$ZIP" -d project
+          else
+            echo "No zip found, using repo files directly"
+            mkdir project
+            shopt -s extglob dotglob
+            cp -r !(project|.git|.github) project/
+          fi
+          APP=$(dirname "$(find project -name app.json -not -path '*/node_modules/*' | head -1)")
+          echo "APP_DIR=$APP" >> $GITHUB_ENV
+          echo "App folder: $APP"
 
       - uses: actions/setup-node@v4
         with:
@@ -25,26 +37,26 @@ jobs:
           java-version: 17
 
       - name: Install packages
-        working-directory: jarvis
+        working-directory: ${{ env.APP_DIR }}
         run: |
           npm install
           npx expo install --fix
 
       - name: Prebuild
-        working-directory: jarvis
+        working-directory: ${{ env.APP_DIR }}
         run: npx expo prebuild --platform android --clean
 
       - name: Apply duplicate-class fix
-        working-directory: jarvis/android
+        working-directory: ${{ env.APP_DIR }}/android
         run: |
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
-          grep -n "com.android.support" app/build.gradle || \
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSpace=1g" | sed 's/MetaspaceSpace/Metaspace/' >> gradle.properties
+          grep -q "exclude group: 'com.android.support'" app/build.gradle || \
             printf "\nconfigurations.all {\n    exclude group: 'com.android.support'\n}\n" >> app/build.gradle
           tail -5 app/build.gradle
 
       - name: Build release APK
-        working-directory: jarvis/android
+        working-directory: ${{ env.APP_DIR }}/android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
@@ -52,4 +64,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: jarvis-apk
-          path: jarvis/android/app/build/outputs/apk/release/*.apk
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*.apk

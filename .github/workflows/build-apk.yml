@@ -31,8 +31,10 @@ jobs:
       - name: Install packages
         working-directory: ${{ env.APP_DIR }}
         run: |
-          npm install
-          npx expo install --fix
+          rm -rf node_modules package-lock.json
+          npm pkg set dependencies.expo="~54.0.0" dependencies.react="19.1.0" dependencies.react-native="0.81.5"
+          npm install --legacy-peer-deps
+          npx expo install --fix -- --legacy-peer-deps
 
       - name: Prebuild
         working-directory: ${{ env.APP_DIR }}

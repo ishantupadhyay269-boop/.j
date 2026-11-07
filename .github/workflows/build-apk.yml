@@ -12,20 +12,12 @@ jobs:
 
       - name: Unzip project
         run: |
-          echo "Repo files:"; ls -la
-          ZIP=$(ls -t *.zip 2>/dev/null | head -1)
-          if [ -n "$ZIP" ]; then
-            echo "Using zip: $ZIP"
-            unzip -o "$ZIP" -d project
-          else
-            echo "No zip found, using repo files directly"
-            mkdir project
-            shopt -s extglob dotglob
-            cp -r !(project|.git|.github) project/
-          fi
+          mkdir -p project
+          unzip -oq jarvis-android-fixed.zip -d project
           APP=$(dirname "$(find project -name app.json -not -path '*/node_modules/*' | head -1)")
           echo "APP_DIR=$APP" >> $GITHUB_ENV
           echo "App folder: $APP"
+          ls "$APP"
 
       - uses: actions/setup-node@v4
         with:
@@ -50,7 +42,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}/android
         run: |
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSpace=1g" | sed 's/MetaspaceSpace/Metaspace/' >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
           grep -q "exclude group: 'com.android.support'" app/build.gradle || \
             printf "\nconfigurations.all {\n    exclude group: 'com.android.support'\n}\n" >> app/build.gradle
           tail -5 app/build.gradle

@@ -1,53 +1,19 @@
 name: Build APK
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Unzip project
         run: |
-          ZIP=$(ls jarvis-android-complete*.zip | sort | tail -n 1)
-          echo "Using: $ZIP"
-          unzip -oq "$ZIP"
-
-      - name: Write correct package.json
-        working-directory: jarvis
-        run: |
-          cat > package.json <<'EOF'
-          {
-            "name": "jarvis",
-            "version": "1.1.0",
-            "main": "index.ts",
-            "dependencies": {
-              "@react-native-async-storage/async-storage": "2.2.0",
-              "@react-native-voice/voice": "^3.2.4",
-              "expo": "~54.0.0",
-              "expo-battery": "~10.0.8",
-              "expo-build-properties": "~1.0.10",
-              "expo-dev-client": "~6.0.21",
-              "expo-intent-launcher": "~13.0.8",
-              "expo-local-authentication": "~17.0.9",
-              "expo-modules-core": "~3.0.30",
-              "expo-network": "~8.0.8",
-              "expo-secure-store": "~15.0.8",
-              "expo-speech": "~14.0.8",
-              "expo-status-bar": "~3.0.9",
-              "react": "19.1.0",
-              "react-native": "0.81.5",
-              "react-native-safe-area-context": "~5.6.0"
-            },
-            "devDependencies": {
-              "@types/react": "~19.1.10",
-              "typescript": "~5.9.2"
-            }
-          }
-          EOF
+          unzip -o jarvis-android-fixed.zip
+          ls jarvis
 
       - uses: actions/setup-node@v4
         with:
@@ -58,16 +24,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-      - name: Install dependencies
+      - name: Install packages
         working-directory: jarvis
-        run: npm install
+        run: |
+          npm install
+          npx expo install --fix
 
-      - name: Generate native android project
+      - name: Prebuild
         working-directory: jarvis
         run: npx expo prebuild --platform android --clean
+
+      - name: Apply duplicate-class fix
+        working-directory: jarvis/android
+        run: |
+          echo "android.enableJetifier=true" >> gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> gradle.properties
+          grep -n "com.android.support" app/build.gradle || \
+            printf "\nconfigurations.all {\n    exclude group: 'com.android.support'\n}\n" >> app/build.gradle
+          tail -5 app/build.gradle
 
       - name: Build release APK
         working-directory: jarvis/android
@@ -79,4 +53,3 @@ jobs:
         with:
           name: jarvis-apk
           path: jarvis/android/app/build/outputs/apk/release/*.apk
-          
